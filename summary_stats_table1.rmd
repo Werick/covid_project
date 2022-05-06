@@ -8,7 +8,58 @@ This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r}
-plot(cars)
+# Load Required Libraries
+library(readxl)
+library(dplyr)
+
+
+# Load data
+df_covid_19_data <- read_excel("data/covid_19_assessment_data_2021_11_05.xlsx", 
+    col_types = c("date", "text", "date", 
+        "date", "numeric", "numeric", "numeric", 
+        "text", "numeric", "date", "numeric", 
+        "text", "text", "numeric", "date", 
+        "date", "numeric", "date", "date", 
+        "date", "date", "text", "text", "numeric", 
+        "numeric", "numeric", "text", "text", 
+        "date", "text"))
+
+
+# Pre-process data
+df_covid_19_data2 <- df_covid_19_data %>%
+  mutate(gender = case_when(sex == 1 ~ "Female",
+                            sex == 2 ~ "Male"),
+         person_found = case_when(personfound == 1 ~ "Patient",
+                                  personfound == 2 ~ "Family Member"),
+         participant_is_alive = case_when(alive == 1 ~ "Yes",
+                                          alive == 0 ~ "No"),
+      
+         age = trunc(difftime(intdate, yob, units = "days")/365.25),
+         age_grp = ifelse(age < 30, "Less than 30 Yrs",
+                          ifelse(age < 50, "30 - 49 Yrs",
+                                 ifelse(age < 100, "50 Yrs and above", "Error"))),
+         seeked_med_attn = case_when(covidcare == 0 ~ "No",
+                                     covidcare == 1 ~ "Yes",
+                                     covidcare == 2 ~ "Unknown"),
+         care_location = case_when(covidcareloc == 1 ~ "Hospital",
+                                   covidcareloc == 2 ~ "Other LOcation"),
+         person_hospitalized = case_when(hospitalized == 1 ~ "Yes",
+                                         hospitalized == 0 ~ "No",
+                                         hospitalized == 2 ~ "Unknown"),
+         use_supp_oxygen = case_when(oxygen_sup == 1 ~ "Yes",
+                                     oxygen_sup == 0 ~ "No",
+                                     oxygen_sup == 2 ~ "Unknown")
+         )
+         
+
+
+head(df_covid_19_data2) %>%
+  select(subjid, intdate, yob, age)
+
+df_covid_19_data2 %>%
+  group_by(gender) %>%
+  summarise(Reviewed = n())
+
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
@@ -16,3 +67,24 @@ Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by press
 When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
 
 The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+
+# Summary using cross tab
+```{r}
+library(crosstable)
+
+crosstable(df_covid_19_data2, c(age_grp, person_found, participant_is_alive, 
+                                seeked_med_attn,care_location,person_hospitalized,
+                                use_supp_oxygen), 
+           by=gender, total="both",
+           margin = "column") %>%
+  as_flextable(keep_id=TRUE)
+
+crosstable(df_covid_19_data2, c(age_grp, person_found, participant_is_alive, 
+                                seeked_med_attn,care_location,person_hospitalized,
+                                use_supp_oxygen), 
+           by=gender, total="both",
+           margin = "column") %>%
+  write.csv("data/table1.csv")
+```
+
